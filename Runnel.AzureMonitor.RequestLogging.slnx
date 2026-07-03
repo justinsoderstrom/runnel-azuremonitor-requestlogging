@@ -1,3 +1,18 @@
 <Solution>
-  <Project Path="Runnel.AzureMonitor.RequestLogging/Runnel.AzureMonitor.RequestLogging.csproj" />
+  <Folder Name="/samples/">
+    <Project Path="samples/Runnel.AzureMonitor.RequestLogging.Sample/Runnel.AzureMonitor.RequestLogging.Sample.csproj" Id="52f21f7f-7c22-4954-a465-cfd55a5b66bc" />
+  </Folder>
+  <Folder Name="/Solution Items/">
+    <File Path=".editorconfig" />
+    <File Path=".gitattributes" />
+    <File Path=".gitignore" />
+    <File Path="LICENSE.txt" />
+    <File Path="README.md" />
+  </Folder>
+  <Folder Name="/src/">
+    <Project Path="src/Runnel.AzureMonitor.RequestLogging/Runnel.AzureMonitor.RequestLogging.csproj" />
+  </Folder>
+  <Folder Name="/test/">
+    <Project Path="test/Runnel.AzureMonitor.RequestLogging.Tests/Runnel.AzureMonitor.RequestLogging.Tests.csproj" Id="46a843c4-62c1-4640-a562-0201b02d6d35" />
+  </Folder>
 </Solution>

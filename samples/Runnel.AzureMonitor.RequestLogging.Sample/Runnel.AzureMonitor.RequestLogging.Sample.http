@@ -1,0 +1,6 @@
+@Runnel.AzureMonitor.RequestLogging.Sample_HostAddress = http://localhost:5014
+
+GET {{Runnel.AzureMonitor.RequestLogging.Sample_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###
