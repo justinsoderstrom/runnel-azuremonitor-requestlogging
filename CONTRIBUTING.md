@@ -52,7 +52,7 @@ These are deliberate design decisions. PRs that violate them will be declined re
 1. **`BodyLoggerOptions` is a migration contract.** Property names and defaults are intentionally identical to the legacy [`Azureblue.ApplicationInsights.RequestLogging`](https://github.com/matthiasguentert/azure-appinsights-logger) package so migration is trivial. Do not rename options or change defaults — even ones that look wrong or low.
 2. **Never write a version number into a csproj.** Versioning is tag-driven via [MinVer](https://github.com/adamralph/minver); releases happen by pushing a `vX.Y.Z` tag.
 3. **Keep the deliberate behavioral fixes.** The README documents intentional differences from the legacy package (response stream restored in `finally`, truncation by characters actually read rather than `Content-Length`, IP tag scoped to this middleware). Don't "fix" these back, and keep README claims in sync with the code.
-4. **No new telemetry-client dependencies.** The package works purely by writing tags on the request `Activity`; the only integration point with Azure Monitor is the exporter the consumer configures.
+4. **No new telemetry-client dependencies.** The package works purely by writing tags on the request `Activity`; the only integration point with Azure Monitor is the exporter the consumer configures. (The existing `Azure.Monitor.OpenTelemetry.AspNetCore` reference is a deliberate exception — it exists so consumers get the distro by default, not because the code uses it.)
 
 ## Pull requests
 

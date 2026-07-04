@@ -56,6 +56,27 @@ public class BodyReaderTests
     }
 
     [Fact]
+    public async Task ReadRequestBodyAsync_HandlesIntMaxValueLimit_WithoutOverflowOrHugeAllocation()
+    {
+        var context = CreateContextWithRequestBody("small body");
+
+        var body = await new BodyReader().ReadRequestBodyAsync(context.Request, int.MaxValue, Appendix);
+
+        body.ShouldBe("small body");
+    }
+
+    [Fact]
+    public async Task ReadRequestBodyAsync_TruncatesBodiesLargerThanOneReadChunk()
+    {
+        // Exercises the chunked read loop: body and limit both exceed the 4096-char chunk size
+        var context = CreateContextWithRequestBody(new string('x', 10_000));
+
+        var body = await new BodyReader().ReadRequestBodyAsync(context.Request, 5000, Appendix);
+
+        body.ShouldBe(new string('x', 5000) + Appendix);
+    }
+
+    [Fact]
     public async Task ReadRequestBodyAsync_LeavesBodyReadableForDownstream()
     {
         var context = CreateContextWithRequestBody("downstream needs this");
@@ -98,6 +119,19 @@ public class BodyReaderTests
         var captured = await bodyReader.ReadResponseBodyAsync(context.Response, 10, Appendix);
 
         captured.ShouldBe("0123456789" + Appendix);
+    }
+
+    [Fact]
+    public void PrepareResponseBodyReading_Throws_WhenCalledTwice()
+    {
+        var context = new DefaultHttpContext();
+        context.Response.Body = new MemoryStream();
+        var bodyReader = new BodyReader();
+
+        bodyReader.PrepareResponseBodyReading(context.Response);
+
+        // A second swap would lose the real response stream (e.g. UseHttpBodyLogging registered twice)
+        Should.Throw<InvalidOperationException>(() => bodyReader.PrepareResponseBodyReading(context.Response));
     }
 
     [Fact]

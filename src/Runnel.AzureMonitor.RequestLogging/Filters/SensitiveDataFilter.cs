@@ -6,11 +6,12 @@ using Microsoft.Extensions.Options;
 namespace Runnel.AzureMonitor.RequestLogging;
 
 /// <summary>
-///     Default <see cref="ISensitiveDataFilter"/>. JSON bodies are walked recursively: a value is
-///     replaced with <c>***MASKED***</c> when its property name contains one of
-///     <see cref="BodyLoggerOptions.PropertyNamesWithSensitiveData"/> (case-insensitive) or the
-///     value matches one of <see cref="BodyLoggerOptions.SensitiveDataRegexes"/>. Non-JSON bodies
-///     are masked wholesale when a regex matches anywhere in the text.
+///     Default <see cref="ISensitiveDataFilter"/>. JSON bodies are walked recursively: a property
+///     value — scalar, object, or array — is replaced with <c>***MASKED***</c> when the property
+///     name contains one of <see cref="BodyLoggerOptions.PropertyNamesWithSensitiveData"/>
+///     (case-insensitive), and a scalar value (including array elements) is masked when it matches
+///     one of <see cref="BodyLoggerOptions.SensitiveDataRegexes"/>. Non-JSON bodies are masked
+///     wholesale when a regex matches anywhere in the text.
 /// </summary>
 public class SensitiveDataFilter : ISensitiveDataFilter
 {
@@ -81,6 +82,14 @@ public class SensitiveDataFilter : ISensitiveDataFilter
     {
         foreach (var property in jsonObject.ToList())
         {
+            // A sensitive property name masks the whole value, containers included —
+            // recursing into {"password": {...}} would leak its inner values
+            if (IsSensitivePropertyName(property.Key))
+            {
+                jsonObject[property.Key] = SensitiveValueMask;
+                continue;
+            }
+
             switch (property.Value)
             {
                 case JsonArray array:
@@ -89,7 +98,7 @@ public class SensitiveDataFilter : ISensitiveDataFilter
                 case JsonObject nested:
                     MaskObject(nested);
                     break;
-                case JsonValue value when ContainsSensitiveData(property.Key, value.ToString()):
+                case JsonValue value when MatchesSensitiveValueRegex(value.ToString()):
                     jsonObject[property.Key] = SensitiveValueMask;
                     break;
             }
@@ -98,21 +107,34 @@ public class SensitiveDataFilter : ISensitiveDataFilter
 
     private void MaskArray(JsonArray jsonArray)
     {
-        foreach (var item in jsonArray)
+        for (var i = 0; i < jsonArray.Count; i++)
         {
-            if (item is not null) MaskNode(item);
+            switch (jsonArray[i])
+            {
+                case JsonObject nested:
+                    MaskObject(nested);
+                    break;
+                case JsonArray nested:
+                    MaskArray(nested);
+                    break;
+                case JsonValue value when MatchesSensitiveValueRegex(value.ToString()):
+                    jsonArray[i] = SensitiveValueMask;
+                    break;
+            }
         }
     }
 
-    private bool ContainsSensitiveData(string propertyName, string propertyValue)
+    private bool ContainsSensitiveData(string propertyName, string propertyValue) =>
+        IsSensitivePropertyName(propertyName) || MatchesSensitiveValueRegex(propertyValue);
+
+    private bool IsSensitivePropertyName(string propertyName)
     {
         var nameToCompare = propertyName.ToLowerInvariant();
-        if (_sensitiveDataPropertyKeys.Contains(nameToCompare)
-            || _sensitiveDataPropertyKeys.Any(key => nameToCompare.Contains(key)))
-        {
-            return true;
-        }
+        return _sensitiveDataPropertyKeys.Any(key => nameToCompare.Contains(key));
+    }
 
+    private bool MatchesSensitiveValueRegex(string propertyValue)
+    {
         foreach (var regex in _regexesForSensitiveValues)
         {
             try

@@ -38,6 +38,15 @@ public class BodyReader : IBodyReader
     /// <inheritdoc />
     public virtual void PrepareResponseBodyReading(HttpResponse response)
     {
+        if (_memoryStream is not null)
+        {
+            // A second swap would capture the first buffer as the "original" stream and the
+            // response would never reach the client — fail loudly instead
+            throw new InvalidOperationException(
+                $"{nameof(PrepareResponseBodyReading)}() was already called for this request. " +
+                "Is UseHttpBodyLogging() registered more than once in the pipeline?");
+        }
+
         _originalResponseBodyStream = response.Body;
         _memoryStream = new MemoryStream();
         response.Body = _memoryStream;
@@ -83,21 +92,25 @@ public class BodyReader : IBodyReader
             return await reader.ReadToEndAsync();
         }
 
-        // Read one character past the limit to detect truncation without a synchronous Peek()
-        var buffer = new char[maxBytes + 1];
-        var read = 0;
-        while (read < buffer.Length)
+        // Read in chunks up to the limit; a large MaxBytes must not preallocate that many chars
+        var buffer = new char[Math.Min(maxBytes, 4096)];
+        var builder = new StringBuilder(buffer.Length);
+        var remaining = maxBytes;
+        while (remaining > 0)
         {
-            var count = await reader.ReadAsync(buffer.AsMemory(read, buffer.Length - read));
-            if (count == 0) break;
-            read += count;
+            var count = await reader.ReadAsync(buffer.AsMemory(0, Math.Min(buffer.Length, remaining)));
+            if (count == 0)
+            {
+                return builder.ToString();
+            }
+
+            builder.Append(buffer, 0, count);
+            remaining -= count;
         }
 
-        if (read <= maxBytes)
-        {
-            return new string(buffer, 0, read);
-        }
-
-        return new string(buffer, 0, maxBytes) + appendix;
+        // At the limit — read one character past it to detect truncation without a synchronous Peek()
+        var probe = new char[1];
+        var truncated = await reader.ReadAsync(probe.AsMemory(0, 1)) > 0;
+        return truncated ? builder.Append(appendix).ToString() : builder.ToString();
     }
 }

@@ -24,7 +24,12 @@ This is the OpenTelemetry-era successor to [Azureblue.ApplicationInsights.Reques
 
 ```shell
 dotnet add package Runnel.AzureMonitor.RequestLogging
+dotnet add package Azure.Monitor.OpenTelemetry.AspNetCore
 ```
+
+This package has **no dependency on the Azure Monitor distro** (or any other exporter) — it only writes tags on the request `Activity`. Add the distro alongside it to export those tags to Application Insights, or skip it if you already have one, or bring a different OpenTelemetry exporter entirely.
+
+Tested against `Azure.Monitor.OpenTelemetry.AspNetCore` **1.5.0 and later**. Earlier versions will most likely work — the middleware only relies on the exporter surfacing request-span tags as custom dimensions, which the distro has done since its early releases — but they aren't verified here.
 
 ## Quickstart
 
@@ -66,8 +71,10 @@ The middleware buffers the request and response streams and writes the captured 
 Things to know:
 
 - **`UseAzureMonitor()` (or another OpenTelemetry exporter) must be configured.** Without a listener the tags have nowhere to go; the middleware then no-ops safely.
+- **Any OpenTelemetry exporter works.** The middleware itself has no Azure dependency — under a different exporter (OTLP to Jaeger, Honeycomb, …) the captured bodies appear as ordinary attributes on the server span. Azure Monitor is where this package is designed, documented, and tested.
 - **Sampling applies.** If a request is sampled out, its span — including the body tags — is dropped. That matches how the legacy SDK's sampling behaved.
 - **Pipeline order matters.** Register `UseHttpBodyLogging()` early — before `MapControllers`/endpoints and before `UseResponseCompression()`, otherwise you'll log compressed bytes.
+- **Responses are buffered in memory.** For every request that matches `HttpVerbs` (the status code isn't known until afterwards), the full response is buffered and only sent to the client once the pipeline completes. Avoid routing streaming endpoints (SSE, large downloads) through this middleware — note that `ExcludedContentTypes` matches the *request* content type, so exclude such endpoints by verb or path instead.
 
 Query the results in Log Analytics:
 
@@ -93,8 +100,11 @@ requests
 | `ClientIpPropertyKey` | `ClientIp` | Custom dimension key for the client IP. |
 | `DisableIpMasking` | `false` | Write the client IP as a custom dimension on every request. Application Insights [masks the built-in `client_IP` field](https://learn.microsoft.com/en-us/azure/azure-monitor/app/ip-collection) at ingestion; this is the escape hatch. |
 | `EnableBodyLoggingOnExceptions` | `false` | Catch, log the request body, and rethrow when downstream code throws. |
-| `PropertyNamesWithSensitiveData` | `password`, `secret`, `passwd`, `api_key`, `access_token`, `accessToken`, `auth`, `credentials`, `mysql_pwd` | JSON property names (case-insensitive substring match) whose values are replaced with `***MASKED***`. |
-| `SensitiveDataRegexes` | credit card pattern | Regexes applied to values; matches are replaced with `***MASKED***`. Non-JSON bodies that match anywhere are masked wholesale. |
+| `PropertyNamesWithSensitiveData` | `password`, `secret`, `passwd`, `api_key`, `access_token`, `accessToken`, `auth`, `credentials`, `mysql_pwd` | JSON property names (case-insensitive substring match) whose values — including nested objects and arrays — are replaced with `***MASKED***`. |
+| `SensitiveDataRegexes` | credit card pattern | Regexes applied to scalar values, including array elements; matches are replaced with `***MASKED***`. Non-JSON bodies that match anywhere are masked wholesale. |
+
+> [!NOTE]
+> When binding options from configuration (e.g. `appsettings.json`), .NET *appends* to list-typed defaults rather than replacing them — a bound `HttpCodes` or `PropertyNamesWithSensitiveData` array adds to the lists above. To replace them, configure in code and `Clear()` first.
 
 Need custom redaction or tag-writing behavior? `ISensitiveDataFilter`, `IBodyReader`, and `IActivityTagWriter` are registered with `TryAdd*`, so your own implementations take precedence when registered first.
 
@@ -114,10 +124,13 @@ Behavioral differences (deliberate fixes):
 - The original response stream is restored in a `finally` block, so the client receives the response even on exception paths.
 - Truncation is decided by the number of characters actually read, not by the `Content-Length` header (which is absent for chunked requests).
 - With `DisableIpMasking`, the IP lands only on request telemetry passing through this middleware, not on every telemetry item.
+- Redaction is stricter: a sensitive property name masks its entire value including nested objects and arrays (the legacy filter recursed into them, leaking inner values), scalar values inside arrays are checked against `SensitiveDataRegexes` (the legacy filter skipped them), and regexes run compiled with a one-second timeout that masks on expiry instead of leaking.
 
 ## ⚠️ A word of caution
 
 Writing HTTP bodies to Application Insights can reveal sensitive user information that would otherwise stay protected in transit via TLS. The built-in redaction is best-effort — you are responsible for compliance (GDPR, PCI, …) with whatever your application logs. Review `PropertyNamesWithSensitiveData`, `SensitiveDataRegexes`, and `ExcludedContentTypes` for your payloads before enabling this in production.
+
+One known limitation to keep in mind: truncation happens **before** redaction. A body longer than `MaxBytes` is usually no longer valid JSON after truncation, so property-name masking cannot apply to it — only the regex fallback does (which then masks the truncated body wholesale on a match). If your payloads can exceed `MaxBytes` and carry sensitive property values, raise `MaxBytes` or add a regex that matches those values.
 
 ## Sample
 

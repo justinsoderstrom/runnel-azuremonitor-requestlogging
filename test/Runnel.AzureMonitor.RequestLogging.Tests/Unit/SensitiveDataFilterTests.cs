@@ -43,6 +43,38 @@ public class SensitiveDataFilterTests
     }
 
     [Fact]
+    public void MasksScalarArrayItems_WhenTheyMatchRegex()
+    {
+        var result = CreateDefaultFilter().RemoveSensitiveData("""{"cards":["4111111111111111","safe"]}""");
+
+        result.ShouldBe("""{"cards":["***MASKED***","safe"]}""");
+    }
+
+    [Fact]
+    public void MasksScalarItems_InNestedArraysAndRootArrays()
+    {
+        var result = CreateDefaultFilter().RemoveSensitiveData("""[["4111111111111111"],"safe"]""");
+
+        result.ShouldBe("""[["***MASKED***"],"safe"]""");
+    }
+
+    [Fact]
+    public void MasksEntireObject_WhenPropertyNameIsSensitive()
+    {
+        var result = CreateDefaultFilter().RemoveSensitiveData("""{"password":{"value":"hunter2"},"user":"bob"}""");
+
+        result.ShouldBe("""{"password":"***MASKED***","user":"bob"}""");
+    }
+
+    [Fact]
+    public void MasksEntireArray_WhenPropertyNameIsSensitive()
+    {
+        var result = CreateDefaultFilter().RemoveSensitiveData("""{"credentials":["hunter2","hunter3"]}""");
+
+        result.ShouldBe("""{"credentials":"***MASKED***"}""");
+    }
+
+    [Fact]
     public void MasksEntireBody_WhenNonJsonTextMatchesRegex()
     {
         var result = CreateDefaultFilter().RemoveSensitiveData("card number is 4111111111111111 thanks");

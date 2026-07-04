@@ -124,5 +124,5 @@ public class BodyLoggerOptions
 
     internal bool IsExcludedContentType(string? contentType) =>
         contentType is not null
-        && ExcludedContentTypes.Any(ct => contentType.StartsWith(ct, StringComparison.InvariantCultureIgnoreCase));
+        && ExcludedContentTypes.Any(ct => contentType.StartsWith(ct, StringComparison.OrdinalIgnoreCase));
 }

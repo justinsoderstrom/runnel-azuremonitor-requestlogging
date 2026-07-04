@@ -6,6 +6,10 @@ namespace Runnel.AzureMonitor.RequestLogging;
 ///     Convenience lists of HTTP status codes grouped by class, for use with
 ///     <see cref="BodyLoggerOptions.HttpCodes"/>.
 /// </summary>
+/// <remarks>
+///     Each property returns a new mutable list on every access, so modifying a returned list
+///     has no effect on later accesses.
+/// </remarks>
 public static class StatusCodeRanges
 {
     /// <summary>All informational (1xx) status codes.</summary>
