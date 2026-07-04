@@ -15,6 +15,7 @@
     <PackageTags>azure-monitor;opentelemetry;application-insights;aspnetcore;middleware;request-logging;response-logging;body-logging;telemetry;custom-dimensions</PackageTags>
     <PackageLicenseExpression>Apache-2.0</PackageLicenseExpression>
     <PackageReadmeFile>README.md</PackageReadmeFile>
+    <PackageIcon>runnel-icon.png</PackageIcon>
     <PackageProjectUrl>https://github.com/justinsoderstrom/runnel-azuremonitor-requestlogging</PackageProjectUrl>
     <RepositoryUrl>https://github.com/justinsoderstrom/runnel-azuremonitor-requestlogging</RepositoryUrl>
     <RepositoryType>git</RepositoryType>
@@ -41,6 +42,8 @@
 
   <ItemGroup>
     <None Include="..\..\README.md" Pack="true" PackagePath="\" />
+    <None Include="..\..\runnel-icon.png" Pack="true" PackagePath="\" />
+    <None Include="..\..\THIRD-PARTY-NOTICES.txt" Pack="true" PackagePath="\" />
   </ItemGroup>
 
 </Project>
