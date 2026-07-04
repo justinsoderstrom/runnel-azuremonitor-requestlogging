@@ -1,3 +1,5 @@
+![Runnel icon](https://raw.githubusercontent.com/justinsoderstrom/runnel-azuremonitor-requestlogging/master/runnel-icon.png)
+
 # Runnel.AzureMonitor.RequestLogging
 
 [![CI](https://github.com/justinsoderstrom/runnel-azuremonitor-requestlogging/actions/workflows/ci.yml/badge.svg)](https://github.com/justinsoderstrom/runnel-azuremonitor-requestlogging/actions/workflows/ci.yml)
