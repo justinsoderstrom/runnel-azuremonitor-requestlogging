@@ -127,6 +127,10 @@ A runnable sample lives in [samples/Runnel.AzureMonitor.RequestLogging.Sample](s
 
 Versions come from git tags via [MinVer](https://github.com/adamralph/minver). Tagging `vX.Y.Z` and pushing the tag triggers the release workflow, which packs and publishes to NuGet.org.
 
+## Contributing
+
+Contributions are welcome! See [CONTRIBUTING.md](CONTRIBUTING.md) for how to get set up and what to know before opening a PR — in particular the hard constraints around the frozen `BodyLoggerOptions` migration contract and tag-driven versioning. Security issues should be reported privately per [SECURITY.md](SECURITY.md).
+
 ## License
 
 [Apache-2.0](LICENSE.txt)
