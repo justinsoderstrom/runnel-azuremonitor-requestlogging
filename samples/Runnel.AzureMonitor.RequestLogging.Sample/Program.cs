@@ -1,41 +1,36 @@
+using Azure.Monitor.OpenTelemetry.AspNetCore;
+
 var builder = WebApplication.CreateBuilder(args);
 
-// Add services to the container.
-// Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi
-builder.Services.AddOpenApi();
+// Register body logging. Defaults log POST/PUT/PATCH bodies on 4xx/5xx responses;
+// the options below are just to make the demo easy to poke at.
+builder.Services.AddHttpBodyLogging(o =>
+{
+    o.MaxBytes = 100;
+    o.DisableIpMasking = true;
+});
+
+// Export telemetry to Application Insights when a connection string is available.
+// Guarded so the sample also runs locally without an Azure resource.
+if (!string.IsNullOrEmpty(builder.Configuration["APPLICATIONINSIGHTS_CONNECTION_STRING"]))
+{
+    builder.Services.AddOpenTelemetry().UseAzureMonitor();
+}
 
 var app = builder.Build();
 
-// Configure the HTTP request pipeline.
-if (app.Environment.IsDevelopment())
-{
-    app.MapOpenApi();
-}
-
 app.UseHttpsRedirection();
 
-var summaries = new[]
-{
-    "Freezing", "Bracing", "Chilly", "Cool", "Mild", "Warm", "Balmy", "Hot", "Sweltering", "Scorching"
-};
+// Register early, before endpoints (and before response compression, if used)
+app.UseHttpBodyLogging();
 
-app.MapGet("/weatherforecast", () =>
-{
-    var forecast = Enumerable.Range(1, 5).Select(index =>
-        new WeatherForecast
-        (
-            DateOnly.FromDateTime(DateTime.Now.AddDays(index)),
-            Random.Shared.Next(-20, 55),
-            summaries[Random.Shared.Next(summaries.Length)]
-        ))
-        .ToArray();
-    return forecast;
-})
-.WithName("GetWeatherForecast");
+// Echoes the order back; returns 400 (which triggers body logging) when "fail" is true
+app.MapPost("/orders", (Order order) =>
+    order.Fail
+        ? Results.BadRequest(new { error = "Order rejected", order })
+        : Results.Ok(order))
+    .WithName("CreateOrder");
 
 app.Run();
 
-internal record WeatherForecast(DateOnly Date, int TemperatureC, string? Summary)
-{
-    public int TemperatureF => 32 + (int)(TemperatureC / 0.5556);
-}
+internal record Order(string Item, int Quantity, bool Fail, string? Password);
