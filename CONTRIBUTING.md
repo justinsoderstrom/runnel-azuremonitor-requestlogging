@@ -49,9 +49,9 @@ New behavior needs tests; bug fixes ideally include a test that fails without th
 
 These are deliberate design decisions. PRs that violate them will be declined regardless of code quality, so please read this section before starting work.
 
-1. **`BodyLoggerOptions` is a migration contract.** Property names and defaults are intentionally identical to the legacy [`Azureblue.ApplicationInsights.RequestLogging`](https://github.com/matthiasguentert/azure-appinsights-logger) package so migration is trivial. Do not rename options or change defaults — even ones that look wrong or low.
+1. **`BodyLoggerOptions` is a migration contract.** Property names and defaults are intentionally identical to the [`Azureblue.ApplicationInsights.RequestLogging`](https://github.com/matthiasguentert/azure-appinsights-logger) package (the classic-SDK project this one was inspired by) so migration is trivial. Do not rename options or change defaults — even ones that look wrong or low.
 2. **Never write a version number into a csproj.** Versioning is tag-driven via [MinVer](https://github.com/adamralph/minver); releases happen by pushing a `vX.Y.Z` tag.
-3. **Keep the deliberate behavioral fixes.** The README documents intentional differences from the legacy package (response stream restored in `finally`, truncation by characters actually read rather than `Content-Length`, IP tag scoped to this middleware). Don't "fix" these back, and keep README claims in sync with the code.
+3. **Keep the deliberate behavioral differences.** The README documents intentional differences from the original package (response stream restored in `finally`, truncation by characters actually read rather than `Content-Length`, IP tag scoped to this middleware). Don't "fix" these back, and keep README claims in sync with the code.
 4. **No telemetry-client dependencies.** The package works purely by writing tags on the request `Activity` and must not reference `Azure.Monitor.OpenTelemetry.AspNetCore` (or any other exporter); consumers install the distro themselves. Only the sample project references it — when bumping that pin, update the README's tested-baseline line to match.
 
 ## Pull requests

@@ -8,9 +8,9 @@ namespace Runnel.AzureMonitor.RequestLogging;
 ///     (exported by Azure Monitor OpenTelemetry as custom dimensions on the request telemetry).
 /// </summary>
 /// <remarks>
-///     Property names and default values match <c>BodyLoggerOptions</c> from the legacy
-///     <c>Azureblue.ApplicationInsights.RequestLogging</c> package, so existing configuration
-///     carries over unchanged.
+///     Property names and default values match <c>BodyLoggerOptions</c> from the
+///     <c>Azureblue.ApplicationInsights.RequestLogging</c> package (see NOTICE.txt),
+///     so existing configuration carries over unchanged.
 /// </remarks>
 public class BodyLoggerOptions
 {

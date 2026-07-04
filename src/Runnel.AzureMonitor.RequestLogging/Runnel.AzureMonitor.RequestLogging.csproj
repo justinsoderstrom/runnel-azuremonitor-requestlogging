@@ -1,4 +1,4 @@
-<Project Sdk="Microsoft.NET.Sdk">
+﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
     <TargetFramework>net10.0</TargetFramework>
@@ -9,7 +9,7 @@
 
   <PropertyGroup Label="Package metadata">
     <PackageId>Runnel.AzureMonitor.RequestLogging</PackageId>
-    <Description>Extends ASP.NET Core applications instrumented with Azure Monitor OpenTelemetry (Azure.Monitor.OpenTelemetry.AspNetCore) to log HTTP request and response bodies as custom dimensions on Application Insights request telemetry. OpenTelemetry-era successor to Azureblue.ApplicationInsights.RequestLogging with a compatible options model.</Description>
+    <Description>Provides an ASP.NET Core middleware for applications instrumented with Azure Monitor OpenTelemetry to log HTTP request and response bodies as custom dimensions.</Description>
     <Authors>Justin Soderstrom</Authors>
     <Copyright>Copyright 2026 Justin Soderstrom</Copyright>
     <PackageTags>azure-monitor;opentelemetry;application-insights;aspnetcore;middleware;request-logging;response-logging;body-logging;telemetry;custom-dimensions</PackageTags>
@@ -42,6 +42,7 @@
   <ItemGroup>
     <None Include="..\..\README.md" Pack="true" PackagePath="\" />
     <None Include="..\..\runnel-icon.png" Pack="true" PackagePath="\" />
+    <None Include="..\..\NOTICE.txt" Pack="true" PackagePath="\" />
     <None Include="..\..\THIRD-PARTY-NOTICES.txt" Pack="true" PackagePath="\" />
   </ItemGroup>
 

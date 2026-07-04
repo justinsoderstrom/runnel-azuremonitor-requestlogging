@@ -24,4 +24,4 @@ body:
   - type: markdown
     attributes:
       value: |
-        **Heads up:** `BodyLoggerOptions` property names and defaults are a frozen migration contract with the legacy `Azureblue.ApplicationInsights.RequestLogging` package — requests to rename options or change defaults will be declined. New additive options are fair game.
+        **Heads up:** `BodyLoggerOptions` property names and defaults are a frozen migration contract with the `Azureblue.ApplicationInsights.RequestLogging` package — requests to rename options or change defaults will be declined. New additive options are fair game.

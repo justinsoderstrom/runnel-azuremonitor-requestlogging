@@ -9,7 +9,7 @@
 
 Logs HTTP request and response bodies from ASP.NET Core applications to **Application Insights** as custom dimensions on request telemetry — built for the modern [Azure Monitor OpenTelemetry distro](https://learn.microsoft.com/en-us/azure/azure-monitor/app/opentelemetry-enable?tabs=aspnetcore) (`Azure.Monitor.OpenTelemetry.AspNetCore`).
 
-This is the OpenTelemetry-era successor to [Azureblue.ApplicationInsights.RequestLogging](https://github.com/matthiasguentert/azure-appinsights-logger), which is built on the legacy Application Insights SDK. The options model is intentionally identical, so [migrating](#migrating-from-azureblueapplicationinsightsrequestlogging) takes minutes.
+It fills the same niche for the OpenTelemetry distro that Matthias Guentert's [Azureblue.ApplicationInsights.RequestLogging](https://github.com/matthiasguentert/azure-appinsights-logger) fills for the classic Application Insights SDK. This is an independent project inspired by his work (see [Acknowledgements](#acknowledgements)) — the options model is intentionally identical, so if you're moving to OpenTelemetry, [migrating](#migrating-from-azureblueapplicationinsightsrequestlogging) takes minutes.
 
 ## Features
 
@@ -66,13 +66,13 @@ With the defaults, the bodies of `POST`/`PUT`/`PATCH` requests that end in a 4xx
 
 ## How it works
 
-The middleware buffers the request and response streams and writes the captured (redacted, truncated) bodies as **tags on the incoming request `Activity`** — the span that ASP.NET Core creates for each request. The Azure Monitor OpenTelemetry exporter emits unrecognized activity tags as `customDimensions` on the corresponding `requests` record in Application Insights, which is exactly where the legacy Application Insights SDK put them.
+The middleware buffers the request and response streams and writes the captured (redacted, truncated) bodies as **tags on the incoming request `Activity`** — the span that ASP.NET Core creates for each request. The Azure Monitor OpenTelemetry exporter emits unrecognized activity tags as `customDimensions` on the corresponding `requests` record in Application Insights, which is exactly where the classic Application Insights SDK put them.
 
 Things to know:
 
 - **`UseAzureMonitor()` (or another OpenTelemetry exporter) must be configured.** Without a listener the tags have nowhere to go; the middleware then no-ops safely.
 - **Any OpenTelemetry exporter works.** The middleware itself has no Azure dependency — under a different exporter (OTLP to Jaeger, Honeycomb, …) the captured bodies appear as ordinary attributes on the server span. Azure Monitor is where this package is designed, documented, and tested.
-- **Sampling applies.** If a request is sampled out, its span — including the body tags — is dropped. That matches how the legacy SDK's sampling behaved.
+- **Sampling applies.** If a request is sampled out, its span — including the body tags — is dropped. That matches how the classic SDK's sampling behaved.
 - **Pipeline order matters.** Register `UseHttpBodyLogging()` early — before `MapControllers`/endpoints and before `UseResponseCompression()`, otherwise you'll log compressed bytes.
 - **Responses are buffered in memory.** For every request that matches `HttpVerbs` (the status code isn't known until afterwards), the full response is buffered and only sent to the client once the pipeline completes. Avoid routing streaming endpoints (SSE, large downloads) through this middleware — note that `ExcludedContentTypes` matches the *request* content type, so exclude such endpoints by verb or path instead.
 
@@ -110,7 +110,9 @@ Need custom redaction or tag-writing behavior? `ISensitiveDataFilter`, `IBodyRea
 
 ## Migrating from Azureblue.ApplicationInsights.RequestLogging
 
-| Legacy | This package |
+If you're staying on the classic Application Insights SDK (`Microsoft.ApplicationInsights.AspNetCore`), keep using [Azureblue.ApplicationInsights.RequestLogging](https://github.com/matthiasguentert/azure-appinsights-logger) — it remains the right tool for that stack. If you're moving to the Azure Monitor OpenTelemetry distro, the mapping is:
+
+| Azureblue.ApplicationInsights.RequestLogging | This package |
 | --- | --- |
 | `services.AddAppInsightsHttpBodyLogging()` | `services.AddHttpBodyLogging()` |
 | `app.UseAppInsightsHttpBodyLogging()` | `app.UseHttpBodyLogging()` |
@@ -119,12 +121,12 @@ Need custom redaction or tag-writing behavior? `ISensitiveDataFilter`, `IBodyRea
 | `ITelemetryWriter` (writes to `RequestTelemetry.Properties`) | `IActivityTagWriter` (writes tags on the request `Activity`) |
 | `ClientIpInitializer` (`ITelemetryInitializer`) | Built into the middleware via `DisableIpMasking` |
 
-Behavioral differences (deliberate fixes):
+A few behaviors deliberately differ:
 
 - The original response stream is restored in a `finally` block, so the client receives the response even on exception paths.
 - Truncation is decided by the number of characters actually read, not by the `Content-Length` header (which is absent for chunked requests).
 - With `DisableIpMasking`, the IP lands only on request telemetry passing through this middleware, not on every telemetry item.
-- Redaction is stricter: a sensitive property name masks its entire value including nested objects and arrays (the legacy filter recursed into them, leaking inner values), scalar values inside arrays are checked against `SensitiveDataRegexes` (the legacy filter skipped them), and regexes run compiled with a one-second timeout that masks on expiry instead of leaking.
+- Redaction is stricter: a sensitive property name masks its entire value including nested objects and arrays (rather than recursing into containers and masking only inner properties that match on their own), scalar values inside arrays are also checked against `SensitiveDataRegexes`, and regexes run compiled with a one-second timeout that masks the value when the timeout expires.
 
 ## ⚠️ A word of caution
 
@@ -144,6 +146,10 @@ Versions come from git tags via [MinVer](https://github.com/adamralph/minver). T
 
 Contributions are welcome! See [CONTRIBUTING.md](CONTRIBUTING.md) for how to get set up and what to know before opening a PR — in particular the hard constraints around the frozen `BodyLoggerOptions` migration contract and tag-driven versioning. Security issues should be reported privately per [SECURITY.md](SECURITY.md).
 
+## Acknowledgements
+
+This project was inspired by [Azureblue.ApplicationInsights.RequestLogging](https://github.com/matthiasguentert/azure-appinsights-logger) by [Matthias Guentert](https://github.com/matthiasguentert), which pioneered this approach for the classic Application Insights SDK — thank you! The options model here intentionally mirrors that package's so migration is easy; see [NOTICE.txt](NOTICE.txt) for attribution. Runnel.AzureMonitor.RequestLogging is an independent project and is not affiliated with, or endorsed by, the original author.
+
 ## License
 
-[Apache-2.0](LICENSE.txt)
+[Apache-2.0](LICENSE.txt), with attribution notices in [NOTICE.txt](NOTICE.txt).

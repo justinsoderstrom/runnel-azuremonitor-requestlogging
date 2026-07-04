@@ -3,13 +3,13 @@ using Shouldly;
 namespace Runnel.AzureMonitor.RequestLogging.Tests.Unit;
 
 /// <summary>
-///     The defaults are the migration contract with the legacy
+///     The defaults are the migration contract with the original
 ///     Azureblue.ApplicationInsights.RequestLogging package — they must not drift.
 /// </summary>
 public class BodyLoggerOptionsTests
 {
     [Fact]
-    public void Defaults_MatchLegacyPackage()
+    public void Defaults_MatchOriginalPackage()
     {
         var options = new BodyLoggerOptions();
 

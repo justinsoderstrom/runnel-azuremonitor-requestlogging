@@ -3,7 +3,7 @@ using System.Diagnostics;
 namespace Runnel.AzureMonitor.RequestLogging;
 
 /// <summary>
-///     Default <see cref="IActivityTagWriter"/>. Replaces the legacy package's
+///     Default <see cref="IActivityTagWriter"/>. The counterpart of the original package's
 ///     <c>ITelemetryWriter</c>, which wrote to <c>RequestTelemetry.Properties</c>.
 /// </summary>
 public class ActivityTagWriter : IActivityTagWriter
@@ -13,7 +13,7 @@ public class ActivityTagWriter : IActivityTagWriter
     {
         if (activity is null || value is null) return;
 
-        // Activity.SetTag overwrites; mirror the legacy behavior of keeping both values
+        // Activity.SetTag overwrites; mirror the original package's behavior of keeping both values
         if (activity.GetTagItem(key) is not null)
         {
             key = $"{key}-dupe-{Guid.NewGuid().ToString()[..8]}";

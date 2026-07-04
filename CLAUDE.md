@@ -4,7 +4,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What this is
 
-A NuGet package (`Runnel.AzureMonitor.RequestLogging`) that logs HTTP request/response bodies from ASP.NET Core apps to Application Insights via the Azure Monitor OpenTelemetry distro. It is the OpenTelemetry-era successor to `Azureblue.ApplicationInsights.RequestLogging` (legacy App Insights SDK). Targets net10.0 only.
+A NuGet package (`Runnel.AzureMonitor.RequestLogging`) that logs HTTP request/response bodies from ASP.NET Core apps to Application Insights via the Azure Monitor OpenTelemetry distro. It is an independent project inspired by Matthias Guentert's `Azureblue.ApplicationInsights.RequestLogging` (which serves the classic App Insights SDK); attribution lives in NOTICE.txt (packed into the nupkg). Targets net10.0 only.
+
+In docs and comments, refer to that package as "the original package" — never "legacy", "successor", or anything implying the original is obsolete, that this project is its official continuation, or that its author endorses this one. The original is actively maintained; the README's migration section deliberately points users staying on the classic SDK back to it.
 
 ## Commands
 
@@ -27,7 +29,7 @@ Collaborators, each behind an interface registered with `TryAdd*` in `ServiceCol
 
 - `IBodyReader` / `BodyReader` — stream buffering and truncation. **Scoped and stateful**: it swaps `HttpResponse.Body` for a `MemoryStream` and holds the original stream in fields, restored in the middleware's `finally`. Don't make it a singleton.
 - `ISensitiveDataFilter` / `SensitiveDataFilter` — walks JSON bodies masking values by property name or regex: a sensitive property name masks the whole value (containers included), regexes check every scalar including array elements; non-JSON bodies matching a regex are masked wholesale. Singleton, registered via explicit factory because it has two constructors.
-- `IActivityTagWriter` / `ActivityTagWriter` — writes tags, suffixing duplicate keys (`-dupe-xxxxxxxx`) instead of overwriting, mirroring legacy behavior.
+- `IActivityTagWriter` / `ActivityTagWriter` — writes tags, suffixing duplicate keys (`-dupe-xxxxxxxx`) instead of overwriting, mirroring the original package's behavior.
 
 Public entry points are the two extension methods: `services.AddHttpBodyLogging([options])` and `app.UseHttpBodyLogging()`.
 
@@ -35,7 +37,7 @@ Integration tests capture the request activity with `ActivityCapture` (an `Activ
 
 ## Hard constraints
 
-- **`BodyLoggerOptions` is a migration contract.** Property names and defaults are intentionally identical to the legacy `Azureblue.ApplicationInsights.RequestLogging` package so migration is trivial. Do not rename options or change defaults.
+- **`BodyLoggerOptions` is a migration contract.** Property names and defaults are intentionally identical to the original `Azureblue.ApplicationInsights.RequestLogging` package so migration is trivial. Do not rename options or change defaults.
 - **Versioning is tag-driven via MinVer** (`v` prefix). Never write a version number into a csproj. Releasing = pushing a `vX.Y.Z` tag, which triggers `.github/workflows/release.yml` to pack and push to NuGet.org.
-- The README documents deliberate behavioral fixes over the legacy package (response stream restored in `finally`, truncation by characters read rather than `Content-Length`, IP tag scoped to this middleware). Keep those behaviors and keep README claims in sync with code.
+- The README documents deliberate behavioral differences from the original package (response stream restored in `finally`, truncation by characters read rather than `Content-Length`, IP tag scoped to this middleware). Keep those behaviors and keep README claims in sync with code.
 - The README states the tested `Azure.Monitor.OpenTelemetry.AspNetCore` baseline (currently 1.5.0+), which is the version pinned in the sample csproj — when bumping the sample's distro reference, update the README line to match.
