@@ -83,7 +83,8 @@ requests
 | where isnotempty(customDimensions.RequestBody)
 | project timestamp, name, resultCode,
           requestBody = customDimensions.RequestBody,
-          responseBody = customDimensions.ResponseBody
+          responseBody = customDimensions.ResponseBody,
+          clientIp = customDimensions.ClientIp
 ```
 
 ## Options
