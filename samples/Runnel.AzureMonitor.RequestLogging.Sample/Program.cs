@@ -12,7 +12,7 @@ builder.Services.AddHttpBodyLogging(o =>
 
 // Export telemetry to Application Insights when a connection string is available.
 // Guarded so the sample also runs locally without an Azure resource.
-if (!string.IsNullOrEmpty(builder.Configuration["APPLICATIONINSIGHTS_CONNECTION_STRING"]))
+if (!string.IsNullOrEmpty(builder.Configuration["AzureMonitor:ConnectionString"]))
 {
     builder.Services.AddOpenTelemetry().UseAzureMonitor();
 }
