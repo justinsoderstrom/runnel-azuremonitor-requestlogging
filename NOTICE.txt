@@ -1,0 +1,13 @@
+Runnel.AzureMonitor.RequestLogging
+Copyright 2026 Justin Soderstrom
+
+This project was inspired by, and its public options model (the
+BodyLoggerOptions property names and default values, including the default
+sensitive-property-name list and credit card regular expression) is derived
+from, Azureblue.ApplicationInsights.RequestLogging by Matthias Guentert
+(https://github.com/matthiasguentert/azure-appinsights-logger), licensed
+under the Apache License, Version 2.0.
+
+Runnel.AzureMonitor.RequestLogging is an independent project. It is not
+affiliated with, maintained by, or endorsed by the author of
+Azureblue.ApplicationInsights.RequestLogging.

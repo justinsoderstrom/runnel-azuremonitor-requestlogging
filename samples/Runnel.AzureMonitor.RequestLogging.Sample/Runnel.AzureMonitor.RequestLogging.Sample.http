@@ -1,6 +1,30 @@
 @Runnel.AzureMonitor.RequestLogging.Sample_HostAddress = http://localhost:5014
 
-GET {{Runnel.AzureMonitor.RequestLogging.Sample_HostAddress}}/weatherforecast/
-Accept: application/json
+### Success (200) — not logged with default HttpCodes
+POST {{Runnel.AzureMonitor.RequestLogging.Sample_HostAddress}}/orders
+Content-Type: application/json
+
+{ "item": "widget", "quantity": 3, "fail": false }
+
+### Failure (400) — RequestBody and ResponseBody land in customDimensions
+POST {{Runnel.AzureMonitor.RequestLogging.Sample_HostAddress}}/orders
+Content-Type: application/json
+
+{ "item": "widget", "quantity": 3, "fail": true }
+
+### Sensitive data — password value is masked in the logged body
+POST {{Runnel.AzureMonitor.RequestLogging.Sample_HostAddress}}/orders
+Content-Type: application/json
+
+{ "item": "widget", "quantity": 3, "fail": true, "password": "hunter2" }
+
+### Oversized body — logged body is truncated at MaxBytes with ***TRUNCATED***
+POST {{Runnel.AzureMonitor.RequestLogging.Sample_HostAddress}}/orders
+Content-Type: application/json
+
+{ "item": "widget-with-a-very-long-name-that-goes-on-and-on-and-on-far-beyond-the-configured-limit", "quantity": 3, "fail": true }
+
+### GET — never logged (not in HttpVerbs)
+GET {{Runnel.AzureMonitor.RequestLogging.Sample_HostAddress}}/orders
 
 ###

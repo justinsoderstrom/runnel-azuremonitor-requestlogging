@@ -1,0 +1,41 @@
+name: Bug report
+description: Something isn't working as documented
+labels: [bug]
+body:
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: What did you expect, and what happened instead? If bodies aren't showing up in Application Insights, please include what you see (or don't) in the `requests` table.
+    validations:
+      required: true
+  - type: textarea
+    id: repro
+    attributes:
+      label: How to reproduce
+      description: Minimal setup that shows the problem — middleware registration, relevant `BodyLoggerOptions`, and the request that triggers it.
+      placeholder: |
+        ```csharp
+        builder.Services.AddHttpBodyLogging(o => { ... });
+        app.UseHttpBodyLogging();
+        ```
+        Request: POST /orders with body { ... } → responds 400
+    validations:
+      required: true
+  - type: input
+    id: package-version
+    attributes:
+      label: Package version
+      placeholder: e.g. 0.1.0
+    validations:
+      required: true
+  - type: input
+    id: runtime
+    attributes:
+      label: .NET / ASP.NET Core version
+      placeholder: e.g. .NET 10.0.2
+  - type: textarea
+    id: context
+    attributes:
+      label: Additional context
+      description: Anything else relevant — pipeline order, other middleware (compression, custom exporters), sampling configuration, etc.
