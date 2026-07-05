@@ -13,7 +13,7 @@ jobs:
       # OIDC token for NuGet.org trusted publishing (no stored API key)
       id-token: write
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           # MinVer derives the version from git history and tags
           fetch-depth: 0
