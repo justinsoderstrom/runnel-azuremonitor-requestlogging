@@ -137,7 +137,7 @@ One known limitation to keep in mind: truncation happens **before** redaction. A
 
 ## Sample
 
-A runnable sample lives in [samples/Runnel.AzureMonitor.RequestLogging.Sample](samples/Runnel.AzureMonitor.RequestLogging.Sample) with an [.http file](samples/Runnel.AzureMonitor.RequestLogging.Sample/Runnel.AzureMonitor.RequestLogging.Sample.http) covering the interesting cases. Set the `APPLICATIONINSIGHTS_CONNECTION_STRING` environment variable to see the telemetry arrive in a real Application Insights resource.
+A runnable sample lives in [samples/Runnel.AzureMonitor.RequestLogging.Sample](samples/Runnel.AzureMonitor.RequestLogging.Sample) with an [.http file](samples/Runnel.AzureMonitor.RequestLogging.Sample/Runnel.AzureMonitor.RequestLogging.Sample.http) covering the interesting cases. Set `AzureMonitor:ConnectionString` — in the sample's `appsettings.json`, or as the `AzureMonitor__ConnectionString` environment variable — to see the telemetry arrive in a real Application Insights resource.
 
 ## Release process
 

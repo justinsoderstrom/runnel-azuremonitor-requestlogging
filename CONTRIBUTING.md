@@ -27,7 +27,7 @@ dotnet test --filter "FullyQualifiedName~BodyReaderTests"   # run one test class
 dotnet run --project samples/Runnel.AzureMonitor.RequestLogging.Sample
 ```
 
-The sample app is the quickest way to exercise the middleware end to end. Set the `APPLICATIONINSIGHTS_CONNECTION_STRING` environment variable to send telemetry to a real Application Insights resource; without it the sample still runs, but no exporter is registered, so the middleware no-ops (that's expected — for observable behavior without Azure, look at the integration tests, which attach an `ActivityListener`).
+The sample app is the quickest way to exercise the middleware end to end. Set `AzureMonitor:ConnectionString` (in the sample's `appsettings.json`, or as the `AzureMonitor__ConnectionString` environment variable) to send telemetry to a real Application Insights resource; without it the sample still runs, but no exporter is registered, so the middleware no-ops (that's expected — for observable behavior without Azure, look at the integration tests, which attach an `ActivityListener`).
 
 ## Project layout
 
