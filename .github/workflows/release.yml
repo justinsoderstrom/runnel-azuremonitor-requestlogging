@@ -50,8 +50,11 @@ jobs:
       - name: Create GitHub release
         env:
           GH_TOKEN: ${{ github.token }}
+        # A hyphen in the tag means a SemVer prerelease (v0.1.0-preview.1);
+        # mark the GitHub release to match so it isn't shown as "latest"
         run: >
           gh release create "${{ github.ref_name }}"
           artifacts/*.nupkg artifacts/*.snupkg
           --verify-tag
           --generate-notes
+          ${{ contains(github.ref_name, '-') && '--prerelease' || '' }}
