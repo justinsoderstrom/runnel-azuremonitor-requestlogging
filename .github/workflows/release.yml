@@ -13,12 +13,14 @@ jobs:
       # OIDC token for NuGet.org trusted publishing (no stored API key)
       id-token: write
     steps:
-      - uses: actions/checkout@v7
+      # Third-party actions are pinned to commit SHAs (Dependabot keeps them updated) —
+      # this job holds id-token: write, so a tampered action tag could publish packages
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
           # MinVer derives the version from git history and tags
           fetch-depth: 0
 
-      - uses: actions/setup-dotnet@v5
+      - uses: actions/setup-dotnet@26b0ec14cb23fa6904739307f278c14f94c95bf1 # v5.4.0
         with:
           dotnet-version: 10.0.x
 
@@ -36,7 +38,7 @@ jobs:
       # and the NUGET_USER repository variable set to the NuGet.org username.
       - name: NuGet.org login (trusted publishing)
         id: nuget-login
-        uses: NuGet/login@v1
+        uses: NuGet/login@8d196754b4036150537f80ac539e15c2f1028841 # v1.2.0
         with:
           user: ${{ vars.NUGET_USER }}
 

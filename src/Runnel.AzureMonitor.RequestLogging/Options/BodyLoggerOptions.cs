@@ -30,7 +30,8 @@ public class BodyLoggerOptions
     public List<int> HttpCodes { get; set; } = [];
 
     /// <summary>
-    ///     Only these HTTP verbs will trigger logging. Defaults to POST, PUT and PATCH.
+    ///     Only these HTTP verbs will trigger logging (matched case-insensitively).
+    ///     Defaults to POST, PUT and PATCH.
     /// </summary>
     public List<string> HttpVerbs { get; set; } =
     [

@@ -31,7 +31,9 @@ Collaborators, each behind an interface registered with `TryAdd*` in `BodyLoggin
 - `ISensitiveDataFilter` / `SensitiveDataFilter` — walks JSON bodies masking values by property name or regex: a sensitive property name masks the whole value (containers included), regexes check every scalar including array elements; non-JSON bodies matching a regex are masked wholesale; JSON-looking bodies that fail to parse (duplicate keys throw `ArgumentException`, not `JsonException`; truncation) are masked wholesale when they contain a sensitive property name. Singleton, registered via explicit factory because it has two constructors.
 - `IActivityTagWriter` / `ActivityTagWriter` — writes tags, suffixing duplicate keys (`-dupe-xxxxxxxx`) instead of overwriting, mirroring the original package's behavior.
 
-Redaction and tag-writing in the middleware are wrapped in catch-alls that log a warning (source-generated `LoggerMessage`) — a telemetry bug must never fail the request it decorates.
+Request-body capture, redaction, and tag-writing in the middleware are wrapped in catch-alls that log a warning (source-generated `LoggerMessage`) — a telemetry bug must never fail the request it decorates. Two deliberate exceptions: an aborted request propagates (the pipeline is already dead), and `PrepareResponseBodyReading`'s double-registration throw stays unguarded (a swallowed swap would eat the response).
+
+`BodyLoggerOptions` is validated at startup by the internal `BodyLoggerOptionsValidator` (`IValidateOptions` + `ValidateOnStart()`): invalid `SensitiveDataRegexes` patterns and empty `*PropertyKey` values fail app start instead of the first request. `HttpVerbs` matching is case-insensitive.
 
 Public entry points are the two extension methods: `services.AddHttpBodyLogging([options])` and `app.UseHttpBodyLogging()`.
 

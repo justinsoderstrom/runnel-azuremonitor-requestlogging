@@ -98,7 +98,7 @@ requests
 | Option | Default | Description |
 | --- | --- | --- |
 | `HttpCodes` | all 4xx + 5xx | Response status codes that trigger logging. `StatusCodeRanges` provides ready-made lists (`Status2xx`, `Status4xx`, …). |
-| `HttpVerbs` | `POST`, `PUT`, `PATCH` | Request methods that trigger logging. |
+| `HttpVerbs` | `POST`, `PUT`, `PATCH` | Request methods that trigger logging (matched case-insensitively). |
 | `ExcludedContentTypes` | `[]` | Request content types to skip (prefix match, case-insensitive). |
 | `MaxBytes` | `1000` | Maximum characters captured per body; `0` or less captures everything. |
 | `Appendix` | `***TRUNCATED***` | Text appended when a body was truncated. |
@@ -112,6 +112,8 @@ requests
 
 > [!NOTE]
 > When binding options from configuration (e.g. `appsettings.json`), .NET *appends* to list-typed defaults rather than replacing them — a bound `HttpCodes` or `PropertyNamesWithSensitiveData` array adds to the lists above. To replace them, configure in code and `Clear()` first.
+
+Options are validated when the application starts: an invalid `SensitiveDataRegexes` pattern or an empty `*PropertyKey` fails startup with a descriptive `OptionsValidationException`, rather than failing requests once the middleware runs.
 
 Need custom redaction or tag-writing behavior? `ISensitiveDataFilter`, `IBodyReader`, and `IActivityTagWriter` are registered with `TryAdd*`, so your own implementations take precedence when registered first.
 
@@ -133,6 +135,7 @@ A few behaviors deliberately differ:
 - The original response stream is restored in a `finally` block, so the client receives the response even on exception paths.
 - Truncation is decided by the number of characters actually read, not by the `Content-Length` header (which is absent for chunked requests).
 - With `DisableIpMasking`, the IP lands only on request telemetry passing through this middleware, not on every telemetry item.
+- `HttpVerbs` entries are matched case-insensitively, and options are validated at startup (an invalid `SensitiveDataRegexes` pattern fails app start instead of failing requests).
 - Redaction is stricter: a sensitive property name masks its entire value including nested objects and arrays (rather than recursing into containers and masking only inner properties that match on their own), scalar values inside arrays are also checked against `SensitiveDataRegexes`, regexes run compiled with a one-second timeout that masks the value when the timeout expires, and bodies that look like JSON but cannot be parsed (duplicate property names, truncation) are masked wholesale when a sensitive property name appears anywhere in the text.
 
 ## ⚠️ A word of caution
