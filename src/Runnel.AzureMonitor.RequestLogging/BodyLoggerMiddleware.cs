@@ -48,7 +48,7 @@ public partial class BodyLoggerMiddleware : IMiddleware
             _tagWriter.Write(activity, _options.ClientIpPropertyKey, context.Connection.RemoteIpAddress?.ToString());
         }
 
-        var enableBodyLogging = _options.HttpVerbs.Contains(context.Request.Method)
+        var enableBodyLogging = _options.HttpVerbs.Contains(context.Request.Method, StringComparer.OrdinalIgnoreCase)
             && !_options.IsExcludedContentType(context.Request.ContentType);
 
         if (!enableBodyLogging)
@@ -57,7 +57,26 @@ public partial class BodyLoggerMiddleware : IMiddleware
             return;
         }
 
-        var requestBody = await _bodyReader.ReadRequestBodyAsync(context.Request, _options.MaxBytes, _options.Appendix);
+        string? requestBody = null;
+        try
+        {
+            requestBody = await _bodyReader.ReadRequestBodyAsync(context.Request, _options.MaxBytes, _options.Appendix);
+        }
+        catch (Exception ex) when (!context.RequestAborted.IsCancellationRequested)
+        {
+            // Telemetry decoration must never fail the request — degrade to "not logged".
+            // An aborted request is excluded: the pipeline is already dead, let it propagate.
+            LogRequestBodyReadFailed(ex);
+
+            // A failed read may leave the stream mid-body; rewind so downstream sees the full body
+            if (context.Request.Body.CanSeek)
+            {
+                context.Request.Body.Position = 0;
+            }
+        }
+
+        // Deliberately unguarded: it throws only on double registration of the middleware,
+        // which must fail loudly (a swallowed swap would eat the response) — see BodyReader
         _bodyReader.PrepareResponseBodyReading(context.Response);
 
         try
@@ -99,8 +118,14 @@ public partial class BodyLoggerMiddleware : IMiddleware
     ///     Redacts and writes one body tag, swallowing (and logging) any failure so a redaction
     ///     or tag-writing bug can never fail the request it decorates.
     /// </summary>
-    private void RedactAndWriteTag(Activity? activity, string key, string body)
+    private void RedactAndWriteTag(Activity? activity, string key, string? body)
     {
+        // Null means the capture itself already failed (and was logged) — nothing to write
+        if (body is null)
+        {
+            return;
+        }
+
         try
         {
             _tagWriter.Write(activity, key, _sensitiveDataFilter.RemoveSensitiveData(body));
@@ -114,6 +139,10 @@ public partial class BodyLoggerMiddleware : IMiddleware
     [LoggerMessage(Level = LogLevel.Warning,
         Message = "Failed to capture the HTTP bodies for the request activity; the response itself is unaffected.")]
     private partial void LogBodyCaptureFailed(Exception exception);
+
+    [LoggerMessage(Level = LogLevel.Warning,
+        Message = "Failed to read the HTTP request body for logging; the request itself is unaffected.")]
+    private partial void LogRequestBodyReadFailed(Exception exception);
 
     [LoggerMessage(Level = LogLevel.Warning,
         Message = "Failed to write the captured HTTP body to the request activity tag '{TagKey}'.")]

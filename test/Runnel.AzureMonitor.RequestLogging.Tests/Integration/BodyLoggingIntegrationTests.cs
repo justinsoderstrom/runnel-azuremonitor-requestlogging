@@ -6,6 +6,7 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.TestHost;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Options;
 using Shouldly;
 
 namespace Runnel.AzureMonitor.RequestLogging.Tests.Integration;
@@ -286,5 +287,54 @@ public class BodyLoggingIntegrationTests
     private sealed class ThrowingSensitiveDataFilter : ISensitiveDataFilter
     {
         public string RemoveSensitiveData(string textOrJson) => throw new InvalidOperationException("filter bug");
+    }
+
+    [Fact]
+    public async Task ThrowingBodyReader_DoesNotFailTheRequest_AndStillLogsTheResponse()
+    {
+        // A bug in a (custom) IBodyReader's request read must degrade to "request body not
+        // logged" — the request still succeeds and the response body is still captured
+        using var capture = new ActivityCapture();
+        using var host = await StartHostAsync(
+            configureServices: services => services.AddScoped<IBodyReader, ThrowingBodyReader>());
+        const string body = """{"name":"widget"}""";
+
+        var response = await host.GetTestClient().PostAsync("/echo?status=400", JsonContent(body), TestToken);
+
+        response.StatusCode.ShouldBe(HttpStatusCode.BadRequest);
+        (await response.Content.ReadAsStringAsync(TestToken)).ShouldBe(body);
+
+        var activity = capture.RequestActivity.ShouldNotBeNull();
+        activity.GetTagItem("RequestBody").ShouldBeNull();
+        activity.GetTagItem("ResponseBody").ShouldBe(body);
+    }
+
+    private sealed class ThrowingBodyReader : BodyReader
+    {
+        public override Task<string> ReadRequestBodyAsync(HttpRequest request, int maxBytes, string appendix) =>
+            throw new InvalidOperationException("reader bug");
+    }
+
+    [Fact]
+    public async Task HttpVerbs_AreMatchedCaseInsensitively()
+    {
+        using var capture = new ActivityCapture();
+        using var host = await StartHostAsync(o => o.HttpVerbs = ["post"]);
+        const string body = """{"a":1}""";
+
+        await host.GetTestClient().PostAsync("/echo?status=400", JsonContent(body), TestToken);
+
+        capture.RequestActivity.ShouldNotBeNull().GetTagItem("RequestBody").ShouldBe(body);
+    }
+
+    [Fact]
+    public async Task InvalidSensitiveDataRegex_FailsAtStartup_NotPerRequest()
+    {
+        // ValidateOnStart surfaces configuration mistakes when the host starts, with the
+        // offending pattern in the message — not as a 500 on the first request
+        var ex = await Should.ThrowAsync<OptionsValidationException>(
+            () => StartHostAsync(o => o.SensitiveDataRegexes.Add("(unclosed")));
+
+        ex.Message.ShouldContain("(unclosed");
     }
 }

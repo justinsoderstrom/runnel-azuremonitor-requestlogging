@@ -18,7 +18,12 @@ public static class BodyLoggingServiceCollectionExtensions
     {
         ArgumentNullException.ThrowIfNull(services);
 
-        services.AddOptions();
+        // Fail fast on configuration mistakes (invalid regex, empty tag key) at app start
+        // instead of on the first request through the middleware
+        services.AddOptions<BodyLoggerOptions>().ValidateOnStart();
+        services.TryAddEnumerable(
+            ServiceDescriptor.Singleton<IValidateOptions<BodyLoggerOptions>, BodyLoggerOptionsValidator>());
+
         services.AddLogging();
         services.TryAddScoped<BodyLoggerMiddleware>();
         services.TryAddScoped<IBodyReader, BodyReader>();
