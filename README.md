@@ -27,6 +27,8 @@ dotnet add package Runnel.AzureMonitor.RequestLogging
 dotnet add package Azure.Monitor.OpenTelemetry.AspNetCore
 ```
 
+Requires **.NET 10** (ASP.NET Core 10). The package targets `net10.0` only.
+
 This package has **no dependency on the Azure Monitor distro** (or any other exporter) — it only writes tags on the request `Activity`. Add the distro alongside it to export those tags to Application Insights, or skip it if you already have one, or bring a different OpenTelemetry exporter entirely.
 
 Tested against `Azure.Monitor.OpenTelemetry.AspNetCore` **1.5.0 and later**. Earlier versions will most likely work — the middleware only relies on the exporter surfacing request-span tags as custom dimensions, which the distro has done since its early releases — but they aren't verified here.
@@ -74,7 +76,11 @@ Things to know:
 - **Any OpenTelemetry exporter works.** The middleware itself has no Azure dependency — under a different exporter (OTLP to Jaeger, Honeycomb, …) the captured bodies appear as ordinary attributes on the server span. Azure Monitor is where this package is designed, documented, and tested.
 - **Sampling applies.** If a request is sampled out, its span — including the body tags — is dropped. That matches how the classic SDK's sampling behaved.
 - **Pipeline order matters.** Register `UseHttpBodyLogging()` early — before `MapControllers`/endpoints and before `UseResponseCompression()`, otherwise you'll log compressed bytes.
+- **Exception handlers work in either order.** Registering `UseHttpBodyLogging()` before `app.UseExceptionHandler(...)` captures the error response the handler produces in a single pass, which is the recommended layout. Registering it after also works — the pipeline re-execution that `UseExceptionHandler("/path")` and `UseStatusCodePagesWithReExecute()` perform is supported — but with `EnableBodyLoggingOnExceptions` the request body is then captured on both passes (the duplicate gets a `-dupe-`-suffixed key).
 - **Responses are buffered in memory.** For every request that matches `HttpVerbs` (the status code isn't known until afterwards), the full response is buffered and only sent to the client once the pipeline completes. Avoid routing streaming endpoints (SSE, large downloads) through this middleware — note that `ExcludedContentTypes` matches the *request* content type, so exclude such endpoints by verb or path instead.
+- **Bodies are decoded as UTF-8.** The request's `charset` is not honored; a non-UTF-8 body logs garbled (the application itself is unaffected).
+- **Valid JSON bodies are re-serialized** after redaction: formatting is compacted and non-ASCII characters are escaped (`é` becomes `\u00e9`), so the logged text can differ cosmetically from the bytes on the wire.
+- **A telemetry failure never fails the request.** If capturing, redacting, or tag-writing throws, the middleware logs a warning through `ILogger` and the response is delivered normally.
 
 Query the results in Log Analytics:
 
@@ -127,13 +133,13 @@ A few behaviors deliberately differ:
 - The original response stream is restored in a `finally` block, so the client receives the response even on exception paths.
 - Truncation is decided by the number of characters actually read, not by the `Content-Length` header (which is absent for chunked requests).
 - With `DisableIpMasking`, the IP lands only on request telemetry passing through this middleware, not on every telemetry item.
-- Redaction is stricter: a sensitive property name masks its entire value including nested objects and arrays (rather than recursing into containers and masking only inner properties that match on their own), scalar values inside arrays are also checked against `SensitiveDataRegexes`, and regexes run compiled with a one-second timeout that masks the value when the timeout expires.
+- Redaction is stricter: a sensitive property name masks its entire value including nested objects and arrays (rather than recursing into containers and masking only inner properties that match on their own), scalar values inside arrays are also checked against `SensitiveDataRegexes`, regexes run compiled with a one-second timeout that masks the value when the timeout expires, and bodies that look like JSON but cannot be parsed (duplicate property names, truncation) are masked wholesale when a sensitive property name appears anywhere in the text.
 
 ## ⚠️ A word of caution
 
 Writing HTTP bodies to Application Insights can reveal sensitive user information that would otherwise stay protected in transit via TLS. The built-in redaction is best-effort — you are responsible for compliance (GDPR, PCI, …) with whatever your application logs. Review `PropertyNamesWithSensitiveData`, `SensitiveDataRegexes`, and `ExcludedContentTypes` for your payloads before enabling this in production.
 
-One known limitation to keep in mind: truncation happens **before** redaction. A body longer than `MaxBytes` is usually no longer valid JSON after truncation, so property-name masking cannot apply to it — only the regex fallback does (which then masks the truncated body wholesale on a match). If your payloads can exceed `MaxBytes` and carry sensitive property values, raise `MaxBytes` or add a regex that matches those values.
+One known limitation to keep in mind: truncation happens **before** redaction. A body longer than `MaxBytes` is usually no longer valid JSON after truncation, so property-level masking cannot apply to it. Bodies that look like JSON but cannot be parsed (truncation, duplicate property names, …) are therefore masked **wholesale** when a sensitive property name appears anywhere in the text or a regex matches — deliberately conservative: over-masking beats leaking. If truncated bodies you care about keep arriving as `***MASKED***`, raise `MaxBytes` so they survive truncation intact.
 
 ## Sample
 

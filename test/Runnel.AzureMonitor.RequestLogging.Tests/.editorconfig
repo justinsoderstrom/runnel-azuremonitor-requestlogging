@@ -1,0 +1,8 @@
+# Test-project analyzer adjustments, layered on the repo root .editorconfig
+[*.cs]
+
+# Underscores in test method names are the standard xUnit naming convention
+dotnet_diagnostic.CA1707.severity = none
+
+# xUnit collection definition classes conventionally end in "Collection"
+dotnet_diagnostic.CA1711.severity = none

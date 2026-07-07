@@ -19,6 +19,9 @@ public interface IBodyReader
     /// <summary>
     ///     Swaps the response body stream for an in-memory buffer so the response can be read
     ///     after downstream middleware has produced it. Must be called before the next delegate.
+    ///     May be called again after <see cref="RestoreOriginalResponseBodyStreamAsync"/> —
+    ///     pipeline re-execution (e.g. <c>UseExceptionHandler("/path")</c>) re-enters the same
+    ///     request-scoped instance.
     /// </summary>
     void PrepareResponseBodyReading(HttpResponse response);
 

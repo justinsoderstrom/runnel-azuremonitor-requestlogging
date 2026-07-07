@@ -1,5 +1,18 @@
-# Remove the line below if you want to inherit .editorconfig settings from higher directories
 root = true
+
+# All files
+# (Line endings are left to git: .gitattributes normalizes them with `* text=auto`.)
+[*]
+indent_style = space
+insert_final_newline = true
+trim_trailing_whitespace = true
+
+# Markdown uses trailing double-spaces for hard line breaks
+[*.md]
+trim_trailing_whitespace = false
+
+[*.{json,yml,yaml}]
+indent_size = 2
 
 # C# files
 [*.cs]
@@ -8,12 +21,7 @@ root = true
 
 # Indentation and spacing
 indent_size = 4
-indent_style = space
 tab_width = 4
-
-# New line preferences
-end_of_line = crlf
-insert_final_newline = false
 
 #### .NET Code Actions ####
 

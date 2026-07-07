@@ -7,18 +7,19 @@ namespace Microsoft.Extensions.DependencyInjection;
 /// <summary>
 ///     Extension methods for registering HTTP body logging services.
 /// </summary>
-public static class ServiceCollectionExtensions
+public static class BodyLoggingServiceCollectionExtensions
 {
     /// <summary>
     ///     Registers the services required by the body logging middleware with default
     ///     <see cref="BodyLoggerOptions"/>. Pair with
-    ///     <see cref="Microsoft.AspNetCore.Builder.ApplicationBuilderExtensions.UseHttpBodyLogging"/>.
+    ///     <see cref="Microsoft.AspNetCore.Builder.BodyLoggingApplicationBuilderExtensions.UseHttpBodyLogging"/>.
     /// </summary>
     public static IServiceCollection AddHttpBodyLogging(this IServiceCollection services)
     {
         ArgumentNullException.ThrowIfNull(services);
 
         services.AddOptions();
+        services.AddLogging();
         services.TryAddScoped<BodyLoggerMiddleware>();
         services.TryAddScoped<IBodyReader, BodyReader>();
         services.TryAddSingleton<IActivityTagWriter, ActivityTagWriter>();

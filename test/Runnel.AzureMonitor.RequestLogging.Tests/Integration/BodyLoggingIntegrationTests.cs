@@ -34,13 +34,16 @@ public class BodyLoggingIntegrationTests
     private static async Task<IHost> StartHostAsync(
         Action<BodyLoggerOptions>? configureOptions = null,
         Action<IApplicationBuilder>? configureBeforeLogging = null,
-        RequestDelegate? handler = null)
+        RequestDelegate? handler = null,
+        Action<IServiceCollection>? configureServices = null)
     {
         return await new HostBuilder()
             .ConfigureWebHost(web => web
                 .UseTestServer()
                 .ConfigureServices(services =>
                 {
+                    // Before AddHttpBodyLogging so TryAdd* lets these registrations win
+                    configureServices?.Invoke(services);
                     if (configureOptions is null) services.AddHttpBodyLogging();
                     else services.AddHttpBodyLogging(configureOptions);
                 })
@@ -206,5 +209,82 @@ public class BodyLoggingIntegrationTests
         await host.GetTestClient().GetAsync("/echo", TestToken);
 
         capture.RequestActivity.ShouldNotBeNull().GetTagItem("ClientIp").ShouldBe("203.0.113.7");
+    }
+
+    [Fact]
+    public async Task ExceptionHandlerReExecution_DeliversErrorResponse_AndLogsBodies()
+    {
+        // UseExceptionHandler("/path") re-runs the pipeline within the same request scope,
+        // re-entering the same scoped BodyReader — the error response must still reach the client
+        using var capture = new ActivityCapture();
+        using var host = await StartHostAsync(
+            configureBeforeLogging: app => app.UseExceptionHandler("/error"),
+            handler: async context =>
+            {
+                if (context.Request.Path == "/error")
+                {
+                    context.Response.StatusCode = 500;
+                    context.Response.ContentType = "application/json";
+                    await context.Response.WriteAsync("""{"error":"handled"}""", context.RequestAborted);
+                }
+                else
+                {
+                    throw new InvalidOperationException("boom");
+                }
+            });
+        const string body = """{"name":"widget"}""";
+
+        var response = await host.GetTestClient().PostAsync("/boom", JsonContent(body), TestToken);
+
+        ((int)response.StatusCode).ShouldBe(500);
+        (await response.Content.ReadAsStringAsync(TestToken)).ShouldBe(
+            """{"error":"handled"}""", "the re-executed error response must reach the client");
+
+        var activity = capture.RequestActivity.ShouldNotBeNull();
+        activity.GetTagItem("RequestBody").ShouldBe(body);
+        activity.GetTagItem("ResponseBody").ShouldBe("""{"error":"handled"}""");
+    }
+
+    [Fact]
+    public async Task DuplicateJsonKeys_AreMaskedWholesale_WithoutFailingTheRequest()
+    {
+        // JsonNode throws ArgumentException on duplicate keys while model binding accepts them
+        // (last wins) — the middleware must deliver the response and mask, not crash or leak
+        using var capture = new ActivityCapture();
+        using var host = await StartHostAsync();
+        const string body = """{"password":"hunter2","password":"hunter3"}""";
+
+        var response = await host.GetTestClient().PostAsync("/echo?status=400", JsonContent(body), TestToken);
+
+        response.StatusCode.ShouldBe(HttpStatusCode.BadRequest);
+        (await response.Content.ReadAsStringAsync(TestToken)).ShouldBe(body);
+
+        var activity = capture.RequestActivity.ShouldNotBeNull();
+        activity.GetTagItem("RequestBody").ShouldBe("***MASKED***");
+        activity.GetTagItem("ResponseBody").ShouldBe("***MASKED***");
+    }
+
+    [Fact]
+    public async Task ThrowingSensitiveDataFilter_DoesNotFailTheRequest()
+    {
+        // A bug in a (custom) filter must degrade to "body not logged", never to a failed request
+        using var capture = new ActivityCapture();
+        using var host = await StartHostAsync(
+            configureServices: services => services.AddSingleton<ISensitiveDataFilter, ThrowingSensitiveDataFilter>());
+        const string body = """{"name":"widget"}""";
+
+        var response = await host.GetTestClient().PostAsync("/echo?status=400", JsonContent(body), TestToken);
+
+        response.StatusCode.ShouldBe(HttpStatusCode.BadRequest);
+        (await response.Content.ReadAsStringAsync(TestToken)).ShouldBe(body);
+
+        var activity = capture.RequestActivity.ShouldNotBeNull();
+        activity.GetTagItem("RequestBody").ShouldBeNull();
+        activity.GetTagItem("ResponseBody").ShouldBeNull();
+    }
+
+    private sealed class ThrowingSensitiveDataFilter : ISensitiveDataFilter
+    {
+        public string RemoveSensitiveData(string textOrJson) => throw new InvalidOperationException("filter bug");
     }
 }
