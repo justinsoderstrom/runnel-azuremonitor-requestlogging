@@ -33,4 +33,4 @@ app.MapPost("/orders", (Order order) =>
 
 app.Run();
 
-internal record Order(string Item, int Quantity, bool Fail, string? Password);
+internal sealed record Order(string Item, int Quantity, bool Fail, string? Password);

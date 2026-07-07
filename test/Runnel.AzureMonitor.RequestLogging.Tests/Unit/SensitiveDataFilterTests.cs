@@ -112,4 +112,52 @@ public class SensitiveDataFilterTests
         filter.RemoveSensitiveData("""{"ssn":"anything","note":"123-45-6789"}""")
             .ShouldBe("""{"ssn":"***MASKED***","note":"***MASKED***"}""");
     }
+
+    // JsonNode.Parse accepts duplicate property names but throws ArgumentException (not
+    // JsonException) when the object materializes — System.Text.Json model binding accepts such
+    // bodies (last value wins), so apps see these requests as perfectly valid. The filter must
+    // neither throw nor log the body verbatim.
+    [Fact]
+    public void DuplicateJsonKeys_WithSensitivePropertyName_AreMaskedWholesale()
+    {
+        var result = CreateDefaultFilter().RemoveSensitiveData("""{"password":"hunter2","password":"hunter3"}""");
+
+        result.ShouldBe("***MASKED***");
+    }
+
+    [Fact]
+    public void NestedDuplicateJsonKeys_WithSensitivePropertyName_AreMaskedWholesale()
+    {
+        var result = CreateDefaultFilter().RemoveSensitiveData("""{"outer":{"password":"hunter2","password":"hunter3"}}""");
+
+        result.ShouldBe("***MASKED***");
+    }
+
+    [Fact]
+    public void DuplicateJsonKeys_WithoutSensitiveContent_AreReturnedUnchanged()
+    {
+        const string input = """{"a":1,"a":2}""";
+
+        CreateDefaultFilter().RemoveSensitiveData(input).ShouldBe(input);
+    }
+
+    [Fact]
+    public void TruncatedJson_ContainingSensitivePropertyName_IsMaskedWholesale()
+    {
+        // A body cut off by MaxBytes is no longer valid JSON, so property-level masking can't
+        // apply — it must be masked wholesale rather than logged with the secret intact
+        const string truncated = """{"password":"hunter2","name":"wid""";
+
+        CreateDefaultFilter().RemoveSensitiveData(truncated).ShouldBe("***MASKED***");
+    }
+
+    [Fact]
+    public void PlainText_ContainingSensitivePropertyName_IsReturnedUnchanged()
+    {
+        // Only JSON-looking unparseable bodies get the property-name scan; prose like
+        // "Unauthorized" (contains "auth") must not be masked wholesale
+        const string input = "your password was reset successfully";
+
+        CreateDefaultFilter().RemoveSensitiveData(input).ShouldBe(input);
+    }
 }

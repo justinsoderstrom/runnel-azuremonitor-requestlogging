@@ -57,8 +57,8 @@ These are deliberate design decisions. PRs that violate them will be declined re
 ## Pull requests
 
 - Branch from `master` and keep PRs focused — one logical change per PR.
-- Follow the existing code style; it's enforced by [.editorconfig](.editorconfig).
-- Make sure `dotnet build` and `dotnet test` pass locally. CI runs both on every PR and must be green.
+- Follow the existing code style; it's defined in [.editorconfig](.editorconfig) and enforced at build time (`EnforceCodeStyleInBuild`, analyzers at `latest-recommended` — see [Directory.Build.props](Directory.Build.props)).
+- Make sure `dotnet build` and `dotnet test` pass locally **without warnings** — CI treats warnings as errors and must be green.
 - Update the README if your change affects documented behavior or options.
 - Fill in the pull request template, including linking the related issue if there is one.
 

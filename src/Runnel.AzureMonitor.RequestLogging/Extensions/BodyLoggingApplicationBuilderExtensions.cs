@@ -5,7 +5,7 @@ namespace Microsoft.AspNetCore.Builder;
 /// <summary>
 ///     Extension methods for adding the body logging middleware to the request pipeline.
 /// </summary>
-public static class ApplicationBuilderExtensions
+public static class BodyLoggingApplicationBuilderExtensions
 {
     /// <summary>
     ///     Adds the <see cref="BodyLoggerMiddleware"/> to the pipeline. Register it early —

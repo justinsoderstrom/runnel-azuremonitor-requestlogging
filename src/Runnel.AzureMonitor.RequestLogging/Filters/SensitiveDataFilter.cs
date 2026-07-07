@@ -11,7 +11,9 @@ namespace Runnel.AzureMonitor.RequestLogging;
 ///     name contains one of <see cref="BodyLoggerOptions.PropertyNamesWithSensitiveData"/>
 ///     (case-insensitive), and a scalar value (including array elements) is masked when it matches
 ///     one of <see cref="BodyLoggerOptions.SensitiveDataRegexes"/>. Non-JSON bodies are masked
-///     wholesale when a regex matches anywhere in the text.
+///     wholesale when a regex matches anywhere in the text. A body that looks like JSON but cannot
+///     be parsed (duplicate property names, truncation, …) cannot get property-level masking, so it
+///     is also masked wholesale when a sensitive property name appears anywhere in the text.
 /// </summary>
 public class SensitiveDataFilter : ISensitiveDataFilter
 {
@@ -20,7 +22,7 @@ public class SensitiveDataFilter : ISensitiveDataFilter
 
     private static readonly TimeSpan RegexMatchTimeout = TimeSpan.FromSeconds(1);
 
-    private readonly HashSet<string> _sensitiveDataPropertyKeys;
+    private readonly string[] _sensitiveDataPropertyKeys;
     private readonly IReadOnlyList<Regex> _regexesForSensitiveValues;
 
     /// <summary>
@@ -37,7 +39,7 @@ public class SensitiveDataFilter : ISensitiveDataFilter
     /// </summary>
     public SensitiveDataFilter(IEnumerable<string> sensitiveDataPropertyKeys, IEnumerable<string> regexesForSensitiveValues)
     {
-        _sensitiveDataPropertyKeys = sensitiveDataPropertyKeys.Select(k => k.ToLowerInvariant()).ToHashSet();
+        _sensitiveDataPropertyKeys = sensitiveDataPropertyKeys.ToArray();
         _regexesForSensitiveValues = regexesForSensitiveValues
             .Select(pattern => new Regex(pattern, RegexOptions.Compiled, RegexMatchTimeout))
             .ToList();
@@ -51,7 +53,7 @@ public class SensitiveDataFilter : ISensitiveDataFilter
             var json = JsonNode.Parse(textOrJson);
             if (json is null) return string.Empty;
 
-            if (json is JsonValue jsonValue && ContainsSensitiveData("", jsonValue.ToString()))
+            if (json is JsonValue jsonValue && MatchesSensitiveValueRegex(jsonValue.ToString()))
             {
                 return SensitiveValueMask;
             }
@@ -59,10 +61,34 @@ public class SensitiveDataFilter : ISensitiveDataFilter
             MaskNode(json);
             return json.ToJsonString();
         }
-        catch (JsonException)
+        catch (Exception ex) when (ex is JsonException or ArgumentException)
         {
-            return ContainsSensitiveData("", textOrJson) ? SensitiveValueMask : textOrJson;
+            // JsonException: the body isn't JSON. ArgumentException: JsonNode.Parse accepted the
+            // text but the object graph cannot be materialized (e.g. duplicate property names,
+            // which System.Text.Json model binding accepts, so apps see such requests as valid).
+            return MaskUnparseableText(textOrJson);
         }
+    }
+
+    /// <summary>
+    ///     Fallback for bodies that property-level masking cannot be applied to. Masks wholesale
+    ///     when a regex matches anywhere, or when the text looks like JSON (so it plausibly carries
+    ///     property values that should have been masked) and contains a sensitive property name.
+    /// </summary>
+    private string MaskUnparseableText(string text)
+    {
+        if (MatchesSensitiveValueRegex(text))
+        {
+            return SensitiveValueMask;
+        }
+
+        return LooksLikeJson(text) && ContainsSensitivePropertyName(text) ? SensitiveValueMask : text;
+    }
+
+    private static bool LooksLikeJson(string text)
+    {
+        var trimmed = text.AsSpan().TrimStart();
+        return trimmed.Length > 0 && trimmed[0] is '{' or '[';
     }
 
     private void MaskNode(JsonNode node)
@@ -84,7 +110,7 @@ public class SensitiveDataFilter : ISensitiveDataFilter
         {
             // A sensitive property name masks the whole value, containers included —
             // recursing into {"password": {...}} would leak its inner values
-            if (IsSensitivePropertyName(property.Key))
+            if (ContainsSensitivePropertyName(property.Key))
             {
                 jsonObject[property.Key] = SensitiveValueMask;
                 continue;
@@ -124,14 +150,8 @@ public class SensitiveDataFilter : ISensitiveDataFilter
         }
     }
 
-    private bool ContainsSensitiveData(string propertyName, string propertyValue) =>
-        IsSensitivePropertyName(propertyName) || MatchesSensitiveValueRegex(propertyValue);
-
-    private bool IsSensitivePropertyName(string propertyName)
-    {
-        var nameToCompare = propertyName.ToLowerInvariant();
-        return _sensitiveDataPropertyKeys.Any(key => nameToCompare.Contains(key));
-    }
+    private bool ContainsSensitivePropertyName(string text) =>
+        _sensitiveDataPropertyKeys.Any(key => text.Contains(key, StringComparison.OrdinalIgnoreCase));
 
     private bool MatchesSensitiveValueRegex(string propertyValue)
     {
