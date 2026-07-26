@@ -11,6 +11,8 @@ Logs HTTP request and response bodies from ASP.NET Core applications to **Applic
 
 It fills the same niche for the OpenTelemetry distro that Matthias Guentert's [Azureblue.ApplicationInsights.RequestLogging](https://github.com/matthiasguentert/azure-appinsights-logger) fills for the classic Application Insights SDK. This is an independent project inspired by his work (see [Acknowledgements](#acknowledgements)) — the options model is intentionally identical, so if you're moving to OpenTelemetry, [migrating](#migrating-from-azureblueapplicationinsightsrequestlogging) takes minutes.
 
+📝 Background and walkthrough: [HTTP body logging for Azure Monitor OpenTelemetry](https://justinsoderstrom.com/blog/runnel-azuremonitor-requestlogging/)
+
 ## Features
 
 - 📄 Log request & response bodies as `customDimensions` on request telemetry
@@ -66,6 +68,32 @@ builder.Services.AddHttpBodyLogging(o =>
 
 With the defaults, the bodies of `POST`/`PUT`/`PATCH` requests that end in a 4xx or 5xx response are captured.
 
+## What it looks like
+
+Send the failing order from the [sample app](samples/Runnel.AzureMonitor.RequestLogging.Sample) — a `POST` that ends in a `400`, carrying a password in the payload:
+
+```http
+POST /orders
+Content-Type: application/json
+
+{ "item": "widget", "quantity": 3, "fail": true, "password": "hunter2" }
+```
+
+Query it in Log Analytics:
+
+```kusto
+requests
+| where isnotempty(customDimensions.RequestBody)
+| project timestamp, name, resultCode,
+          requestBody = customDimensions.RequestBody,
+          responseBody = customDimensions.ResponseBody,
+          clientIp = customDimensions.ClientIp
+```
+
+![Request and response bodies as customDimensions on a requests record in Application Insights](https://raw.githubusercontent.com/justinsoderstrom/runnel-azuremonitor-requestlogging/master/docs/images/runnel-appinsights-example.png)
+
+Both bodies land as `customDimensions` on the `requests` record and expand as JSON in the portal. `password` is masked in the request *and* in the copy nested inside the response's `order` object — a sensitive property name masks its value wherever it appears, including inside containers. The `400` in `resultCode` is why this request was captured at all under the default `HttpCodes`, and `clientIp` is populated because the sample sets `DisableIpMasking`.
+
 ## How it works
 
 The middleware buffers the request and response streams and writes the captured (redacted, truncated) bodies as **tags on the incoming request `Activity`** — the span that ASP.NET Core creates for each request. The Azure Monitor OpenTelemetry exporter emits unrecognized activity tags as `customDimensions` on the corresponding `requests` record in Application Insights, which is exactly where the classic Application Insights SDK put them.
@@ -81,17 +109,6 @@ Things to know:
 - **Bodies are decoded as UTF-8.** The request's `charset` is not honored; a non-UTF-8 body logs garbled (the application itself is unaffected).
 - **Valid JSON bodies are re-serialized** after redaction: formatting is compacted and non-ASCII characters are escaped (`é` becomes `\u00e9`), so the logged text can differ cosmetically from the bytes on the wire.
 - **A telemetry failure never fails the request.** If capturing, redacting, or tag-writing throws, the middleware logs a warning through `ILogger` and the response is delivered normally.
-
-Query the results in Log Analytics:
-
-```kusto
-requests
-| where isnotempty(customDimensions.RequestBody)
-| project timestamp, name, resultCode,
-          requestBody = customDimensions.RequestBody,
-          responseBody = customDimensions.ResponseBody,
-          clientIp = customDimensions.ClientIp
-```
 
 ## Options
 
@@ -146,7 +163,7 @@ One known limitation to keep in mind: truncation happens **before** redaction. A
 
 ## Sample
 
-A runnable sample lives in [samples/Runnel.AzureMonitor.RequestLogging.Sample](samples/Runnel.AzureMonitor.RequestLogging.Sample) with an [.http file](samples/Runnel.AzureMonitor.RequestLogging.Sample/Runnel.AzureMonitor.RequestLogging.Sample.http) covering the interesting cases. Set `AzureMonitor:ConnectionString` — in the sample's `appsettings.json`, or as the `AzureMonitor__ConnectionString` environment variable — to see the telemetry arrive in a real Application Insights resource.
+A runnable sample lives in [samples/Runnel.AzureMonitor.RequestLogging.Sample](samples/Runnel.AzureMonitor.RequestLogging.Sample) with an [.http file](samples/Runnel.AzureMonitor.RequestLogging.Sample/Runnel.AzureMonitor.RequestLogging.Sample.http) covering the interesting cases. Set `AzureMonitor:ConnectionString` — in the sample's `appsettings.json`, or as the `AzureMonitor__ConnectionString` environment variable — to see the telemetry arrive in a real Application Insights resource. The blog post [HTTP body logging for Azure Monitor OpenTelemetry](https://justinsoderstrom.com/blog/runnel-azuremonitor-requestlogging/) walks through this sample end to end.
 
 ## Release process
 
